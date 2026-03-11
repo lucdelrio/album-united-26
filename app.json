@@ -1,0 +1,10 @@
+{
+  "name": "Album United 26",
+  "slug": "panini-wc-26",
+  "android": {
+    "package": "com.panini.wc26"
+  },
+  "ios": {
+    "bundleIdentifier": "com.panini.wc26"
+  }
+}

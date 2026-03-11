@@ -1,0 +1,109 @@
+export const translations = {
+  en: {
+    appName: 'Album United 26',
+    dashboardTab: 'Dashboard',
+    albumTab: 'Album',
+    repeatedTab: 'Repeated',
+    dashboardTitle: 'Album Progress',
+    dashboardSubtitle: 'Track your Panini World Cup 2026 collection',
+    totalStickers: 'Total stickers',
+    ownedStickers: 'Owned stickers',
+    missingStickers: 'Missing stickers',
+    repeatedStickers: 'Repeated stickers',
+    completedPercent: 'Completed',
+    completionHint: '{percent}% of your album is complete',
+    languageLabel: 'Language',
+    english: 'English',
+    spanish: 'Spanish',
+    albumTitle: 'All Stickers',
+    albumSubtitle: 'Mark what you already own and what is repeated',
+    searchPlaceholder: 'Search by code, title or category',
+    filterAll: 'All',
+    filterOwned: 'Owned',
+    filterMissing: 'Missing',
+    filterRepeated: 'Repeated',
+    markOwned: 'Have it',
+    unmarkOwned: 'Remove',
+    markRepeated: 'Repeated',
+    unmarkRepeated: 'Not repeated',
+    repeatedTitle: 'Repeated Stickers',
+    repeatedSubtitle: 'These are available for trade',
+    noRepeated: 'No repeated stickers yet.',
+    summaryByCategory: 'Progress by category',
+    categorySpecial: 'Special',
+    categoryStadiums: 'Stadiums',
+    categoryLegends: 'Legends',
+    categoryTeams: 'Teams',
+    itemsCount: '{count} items',
+    noSearchResults: 'No stickers found for your search.',
+    repeatedLabel: 'Repeated',
+    categoryFilterTitle: 'Categories',
+    allCategories: 'All Categories',
+    teamFilterTitle: 'Teams',
+    allTeams: 'All Teams',
+  },
+  es: {
+    appName: 'Album United 26',
+    dashboardTab: 'Tablero',
+    albumTab: 'Album',
+    repeatedTab: 'Repetidas',
+    dashboardTitle: 'Progreso del Album',
+    dashboardSubtitle: 'Segui tu coleccion Panini Mundial 2026',
+    totalStickers: 'Figuritas totales',
+    ownedStickers: 'Figuritas que tenes',
+    missingStickers: 'Figuritas faltantes',
+    repeatedStickers: 'Figuritas repetidas',
+    completedPercent: 'Completado',
+    completionHint: '{percent}% del album esta completo',
+    languageLabel: 'Idioma',
+    english: 'Ingles',
+    spanish: 'Espanol',
+    albumTitle: 'Todas las Figuritas',
+    albumSubtitle: 'Marca las que ya tenes y las repetidas',
+    searchPlaceholder: 'Buscar por codigo, nombre o categoria',
+    filterAll: 'Todas',
+    filterOwned: 'Tenes',
+    filterMissing: 'Faltan',
+    filterRepeated: 'Repetidas',
+    markOwned: 'La tengo',
+    unmarkOwned: 'Quitar',
+    markRepeated: 'Repetida',
+    unmarkRepeated: 'No repetida',
+    repeatedTitle: 'Figuritas Repetidas',
+    repeatedSubtitle: 'Disponibles para intercambio',
+    noRepeated: 'Aun no tenes figuritas repetidas.',
+    summaryByCategory: 'Progreso por categoria',
+    categorySpecial: 'Especiales',
+    categoryStadiums: 'Estadios',
+    categoryLegends: 'Leyendas',
+    categoryTeams: 'Equipos',
+    itemsCount: '{count} items',
+    noSearchResults: 'No se encontraron figuritas para tu busqueda.',
+    repeatedLabel: 'Repetida',
+    categoryFilterTitle: 'Categorias',
+    allCategories: 'Todas las categorias',
+    teamFilterTitle: 'Equipos',
+    allTeams: 'Todos los equipos',
+  },
+} as const;
+
+export type Language = keyof typeof translations;
+export type TranslationKey = keyof (typeof translations)['en'];
+
+type InterpolationValues = Record<string, string | number>;
+
+export function t(
+  language: Language,
+  key: TranslationKey,
+  values?: InterpolationValues
+): string {
+  const template: string = translations[language][key] ?? translations.en[key];
+  if (!values) {
+    return template;
+  }
+
+  return Object.entries(values).reduce(
+    (message, [token, value]) => message.replaceAll(`{${token}}`, String(value)),
+    template
+  );
+}
