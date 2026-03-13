@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 const TEST_BANNER_ID = 'ca-app-pub-3940256099942544/6300978111';
@@ -13,9 +13,22 @@ type MobileAdsModule = {
   BannerAdSize?: Record<string, string>;
 };
 
+function hasGoogleMobileAdsNativeModule(): boolean {
+  const modules = NativeModules as Record<string, unknown>;
+  return Boolean(
+    modules.RNGoogleMobileAdsModule ||
+      modules.RNGoogleMobileAdsNativeModule ||
+      modules.RNAppModule
+  );
+}
+
 export function getGoogleMobileAdsModule(): MobileAdsModule | null {
   // Expo Go does not include react-native-google-mobile-ads native binaries.
   if (Constants.executionEnvironment === 'storeClient') {
+    return null;
+  }
+
+  if (!hasGoogleMobileAdsNativeModule()) {
     return null;
   }
 

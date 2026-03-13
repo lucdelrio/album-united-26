@@ -1,9 +1,10 @@
 export const translations = {
   en: {
     appName: 'Album United 26',
-    dashboardTab: 'Dashboard',
+    dashboardTab: 'Home',
     albumTab: 'Album',
     repeatedTab: 'Repeated',
+    settingsTab: 'Settings',
     dashboardTitle: 'Album Progress',
     dashboardSubtitle: 'Track your Panini World Cup 2026 collection',
     totalStickers: 'Total stickers',
@@ -41,12 +42,15 @@ export const translations = {
     allCategories: 'All Categories',
     teamFilterTitle: 'Teams',
     allTeams: 'All Teams',
+    settingsTitle: 'Settings',
+    settingsSubtitle: 'Customize your app preferences',
   },
   es: {
     appName: 'Album United 26',
-    dashboardTab: 'Tablero',
+    dashboardTab: 'Home',
     albumTab: 'Album',
     repeatedTab: 'Repetidas',
+    settingsTab: 'Ajustes',
     dashboardTitle: 'Progreso del Album',
     dashboardSubtitle: 'Segui tu coleccion Panini Mundial 2026',
     totalStickers: 'Figuritas totales',
@@ -84,6 +88,8 @@ export const translations = {
     allCategories: 'Todas las categorias',
     teamFilterTitle: 'Equipos',
     allTeams: 'Todos los equipos',
+    settingsTitle: 'Ajustes',
+    settingsSubtitle: 'Personaliza las preferencias de la app',
   },
 } as const;
 

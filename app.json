@@ -1,10 +1,30 @@
 {
   "name": "Album United 26",
-  "slug": "panini-wc-26",
+  "slug": "album-united-26",
+  "orientation": "portrait",
+  "plugins": [
+    [
+      "react-native-google-mobile-ads",
+      {
+        "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+        "androidAppId": "ca-app-pub-3940256099942544~3347511713"
+      }
+    ]
+  ],
   "android": {
-    "package": "com.panini.wc26"
+    "package": "com.album.united26"
   },
   "ios": {
-    "bundleIdentifier": "com.panini.wc26"
+    "bundleIdentifier": "com.album.united26",
+    "deploymentTarget": "15.1",
+    "infoPlist": {
+      "NSUserTrackingUsageDescription": "We use your data to provide more relevant ads.",
+      "NSLocalNetworkUsageDescription": "Allow local network access to connect to the Metro development server.",
+      "NSBonjourServices": [
+        "_expo._tcp",
+        "_http._tcp",
+        "_react-native._tcp"
+      ]
+    }
   }
 }

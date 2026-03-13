@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "worldcup2026.app"
-               BlueprintName = "worldcup2026"
-               ReferencedContainer = "container:worldcup2026.xcodeproj">
+               BuildableName = "AlbumUnited26.app"
+               BlueprintName = "AlbumUnited26"
+               ReferencedContainer = "container:AlbumUnited26.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "worldcup2026Tests.xctest"
-               BlueprintName = "worldcup2026Tests"
-               ReferencedContainer = "container:worldcup2026.xcodeproj">
+               BuildableName = "AlbumUnited26Tests.xctest"
+               BlueprintName = "AlbumUnited26Tests"
+               ReferencedContainer = "container:AlbumUnited26.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "worldcup2026.app"
-            BlueprintName = "worldcup2026"
-            ReferencedContainer = "container:worldcup2026.xcodeproj">
+            BuildableName = "AlbumUnited26.app"
+            BlueprintName = "AlbumUnited26"
+            ReferencedContainer = "container:AlbumUnited26.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "worldcup2026.app"
-            BlueprintName = "worldcup2026"
-            ReferencedContainer = "container:worldcup2026.xcodeproj">
+            BuildableName = "AlbumUnited26.app"
+            BlueprintName = "AlbumUnited26"
+            ReferencedContainer = "container:AlbumUnited26.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

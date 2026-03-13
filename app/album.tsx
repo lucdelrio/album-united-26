@@ -1,9 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   FlatList,
   Image,
+  Keyboard,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   SectionList,
@@ -14,7 +19,10 @@ import {
 } from 'react-native';
 
 import { useAlbum } from '../lib/albumContext';
-import type { Sticker, StickerCategory } from '../lib/types';
+import type { Sticker, StickerCategory, TeamSection } from '../lib/types';
+
+const stadiumSilhouetteImage = require('../assets/icons/stadium-silhouette.png');
+const playerSilhouetteImage = require('../assets/icons/player-action-silhouette.png');
 
 type FilterType = 'all' | 'owned' | 'missing' | 'repeated';
 
@@ -66,6 +74,283 @@ const categoryKeyMap: Record<
   teams: 'categoryTeams',
 };
 
+const categoryCardTheme: Record<
+  StickerCategory,
+  {
+    accent: string;
+    border: string;
+    surface: string;
+    strip: string;
+    chipBackground: string;
+    chipBorder: string;
+    badgeBackground: string;
+    badgeBorder: string;
+  }
+> = {
+  special: {
+    accent: '#c1121f',
+    border: '#f7b7bf',
+    surface: '#fff1f3',
+    strip: '#ffd7dd',
+    chipBackground: '#ffe7ea',
+    chipBorder: '#f6bac2',
+    badgeBackground: '#ffece0',
+    badgeBorder: '#f7c7a0',
+  },
+  stadiums: {
+    accent: '#0d6efd',
+    border: '#cfe0ff',
+    surface: '#edf3ff',
+    strip: '#d8e6ff',
+    chipBackground: '#e6efff',
+    chipBorder: '#c7dcff',
+    badgeBackground: '#e7f0ff',
+    badgeBorder: '#c8dcff',
+  },
+  legends: {
+    accent: '#d17416',
+    border: '#f9d1aa',
+    surface: '#fff4e8',
+    strip: '#ffe2c2',
+    chipBackground: '#fff0dd',
+    chipBorder: '#f8d2ad',
+    badgeBackground: '#fff2e4',
+    badgeBorder: '#f9c797',
+  },
+  teams: {
+    accent: '#009b3a',
+    border: '#bde8cf',
+    surface: '#ebf8f0',
+    strip: '#caefd9',
+    chipBackground: '#ddf5e8',
+    chipBorder: '#b9e5cb',
+    badgeBackground: '#e6f7ec',
+    badgeBorder: '#bde8cf',
+  },
+};
+
+const teamSectionAccent: Record<TeamSection, string> = {
+  concacaf: '#009b3a',
+  conmebol: '#f4b400',
+  uefa: '#0d6efd',
+  caf: '#fb8500',
+  afc: '#d00000',
+  ofc: '#4361ee',
+  playoff: '#7b2cbf',
+};
+
+const flagPaletteByIso2: Record<string, { primary: string; secondary: string }> = {
+  us: { primary: '#b22234', secondary: '#3c3b6e' },
+  ca: { primary: '#d80621', secondary: '#ffffff' },
+  mx: { primary: '#006847', secondary: '#ce1126' },
+  pa: { primary: '#005293', secondary: '#d21034' },
+  cr: { primary: '#002b7f', secondary: '#ce1126' },
+  jm: { primary: '#009b3a', secondary: '#fcd116' },
+  ar: { primary: '#74acdf', secondary: '#ffffff' },
+  br: { primary: '#009b3a', secondary: '#ffdf00' },
+  uy: { primary: '#0038a8', secondary: '#ffffff' },
+  co: { primary: '#fcd116', secondary: '#003893' },
+  ecu: { primary: '#fcd116', secondary: '#034ea2' },
+  ve: { primary: '#f4c300', secondary: '#cf142b' },
+  de: { primary: '#000000', secondary: '#dd0000' },
+  fr: { primary: '#0055a4', secondary: '#ef4135' },
+  es: { primary: '#aa151b', secondary: '#f1bf00' },
+  'gb-eng': { primary: '#c8102e', secondary: '#ffffff' },
+  pt: { primary: '#046a38', secondary: '#da291c' },
+  nl: { primary: '#21468b', secondary: '#ae1c28' },
+  it: { primary: '#009246', secondary: '#ce2b37' },
+  be: { primary: '#000000', secondary: '#ef3340' },
+  hr: { primary: '#171796', secondary: '#f00000' },
+  rs: { primary: '#c6363c', secondary: '#0c4076' },
+  ch: { primary: '#d52b1e', secondary: '#ffffff' },
+  at: { primary: '#ed2939', secondary: '#ffffff' },
+  'gb-sct': { primary: '#005eb8', secondary: '#ffffff' },
+  tr: { primary: '#e30a17', secondary: '#ffffff' },
+  hu: { primary: '#ce2939', secondary: '#477050' },
+  ua: { primary: '#0057b7', secondary: '#ffd700' },
+  ma: { primary: '#c1272d', secondary: '#006233' },
+  sn: { primary: '#00853f', secondary: '#fdef42' },
+  eg: { primary: '#ce1126', secondary: '#000000' },
+  za: { primary: '#007749', secondary: '#ffb612' },
+  ng: { primary: '#008751', secondary: '#ffffff' },
+  dz: { primary: '#006233', secondary: '#d21034' },
+  cm: { primary: '#007a5e', secondary: '#ce1126' },
+  tn: { primary: '#e70013', secondary: '#ffffff' },
+  cd: { primary: '#00a1de', secondary: '#ef3340' },
+  jp: { primary: '#bc002d', secondary: '#ffffff' },
+  kr: { primary: '#003478', secondary: '#c60c30' },
+  ir: { primary: '#239f40', secondary: '#da0000' },
+  sa: { primary: '#006c35', secondary: '#ffffff' },
+  au: { primary: '#012169', secondary: '#e4002b' },
+  qa: { primary: '#8d1b3d', secondary: '#ffffff' },
+  iq: { primary: '#ce1126', secondary: '#000000' },
+  jo: { primary: '#007a3d', secondary: '#ce1126' },
+  nz: { primary: '#012169', secondary: '#c8102e' },
+  ro: { primary: '#002b7f', secondary: '#fcd116' },
+  si: { primary: '#0056a4', secondary: '#ed1c24' },
+};
+
+const categoryWatermarkIcon: Record<StickerCategory, keyof typeof Ionicons.glyphMap> = {
+  special: 'trophy-outline',
+  stadiums: 'football-outline',
+  legends: 'person-outline',
+  teams: 'shield-outline',
+};
+
+const categoryHeroIcon: Record<StickerCategory, keyof typeof Ionicons.glyphMap> = {
+  special: 'trophy',
+  stadiums: 'football',
+  legends: 'person',
+  teams: 'shield-checkmark',
+};
+
+const flagEmojiByIso2: Record<string, string> = {
+  us: '🇺🇸',
+  ca: '🇨🇦',
+  mx: '🇲🇽',
+  pa: '🇵🇦',
+  cr: '🇨🇷',
+  jm: '🇯🇲',
+  ar: '🇦🇷',
+  br: '🇧🇷',
+  uy: '🇺🇾',
+  co: '🇨🇴',
+  ec: '🇪🇨',
+  ve: '🇻🇪',
+  de: '🇩🇪',
+  fr: '🇫🇷',
+  es: '🇪🇸',
+  'gb-eng': '🏴',
+  pt: '🇵🇹',
+  nl: '🇳🇱',
+  it: '🇮🇹',
+  be: '🇧🇪',
+  hr: '🇭🇷',
+  rs: '🇷🇸',
+  ch: '🇨🇭',
+  at: '🇦🇹',
+  'gb-sct': '🏴',
+  tr: '🇹🇷',
+  hu: '🇭🇺',
+  ua: '🇺🇦',
+  ma: '🇲🇦',
+  sn: '🇸🇳',
+  eg: '🇪🇬',
+  za: '🇿🇦',
+  ng: '🇳🇬',
+  dz: '🇩🇿',
+  cm: '🇨🇲',
+  tn: '🇹🇳',
+  cd: '🇨🇩',
+  jp: '🇯🇵',
+  kr: '🇰🇷',
+  ir: '🇮🇷',
+  sa: '🇸🇦',
+  au: '🇦🇺',
+  qa: '🇶🇦',
+  iq: '🇮🇶',
+  jo: '🇯🇴',
+  nz: '🇳🇿',
+  ro: '🇷🇴',
+  si: '🇸🇮',
+};
+
+function getFlagEmoji(iso2?: string): string {
+  if (!iso2) {
+    return '🏳️';
+  }
+
+  return flagEmojiByIso2[iso2.toLowerCase()] ?? '🏳️';
+}
+
+function normalizeColorSeed(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function hslToHex(hue: number, saturation: number, lightness: number): string {
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (hue < 60) {
+    r = c;
+    g = x;
+  } else if (hue < 120) {
+    r = x;
+    g = c;
+  } else if (hue < 180) {
+    g = c;
+    b = x;
+  } else if (hue < 240) {
+    g = x;
+    b = c;
+  } else if (hue < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+
+  const toHex = (channel: number) => Math.round((channel + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hexToRgb(hexColor: string): { red: number; green: number; blue: number } {
+  const normalized = hexColor.replace('#', '');
+  return {
+    red: Number.parseInt(normalized.slice(0, 2), 16),
+    green: Number.parseInt(normalized.slice(2, 4), 16),
+    blue: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+function blendColors(from: string, to: string, ratio: number): string {
+  const clampedRatio = Math.max(0, Math.min(1, ratio));
+  const start = hexToRgb(from);
+  const end = hexToRgb(to);
+
+  const red = Math.round(start.red + (end.red - start.red) * clampedRatio);
+  const green = Math.round(start.green + (end.green - start.green) * clampedRatio);
+  const blue = Math.round(start.blue + (end.blue - start.blue) * clampedRatio);
+
+  const toHex = (channel: number) => channel.toString(16).padStart(2, '0');
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+}
+
+function resolveCardTheme(sticker: Sticker) {
+  if (sticker.category !== 'teams') {
+    return categoryCardTheme[sticker.category];
+  }
+
+  const base = teamSectionAccent[sticker.teamSection ?? 'playoff'];
+  const palette = flagPaletteByIso2[(sticker.iso2 ?? '').toLowerCase()];
+  const primary = palette?.primary ?? base;
+  const secondary = palette?.secondary ?? '#ffffff';
+  const accent = blendColors(primary, secondary, 0.2);
+
+  return {
+    accent,
+    border: blendColors(primary, '#ffffff', 0.62),
+    surface: blendColors(secondary, '#ffffff', 0.76),
+    strip: blendColors(primary, secondary, 0.42),
+    chipBackground: blendColors(secondary, '#ffffff', 0.72),
+    chipBorder: blendColors(primary, '#ffffff', 0.68),
+    badgeBackground: blendColors(secondary, '#ffffff', 0.64),
+    badgeBorder: blendColors(primary, '#ffffff', 0.66),
+  };
+}
+
 export default function AlbumScreen() {
   const { stickers, stickerState, toggleOwned, incrementRepeated, decrementRepeated, getLabel } = useAlbum();
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,6 +359,13 @@ export default function AlbumScreen() {
   const [categoryFilter, setCategoryFilter] = useState<StickerCategory | 'all'>('all');
   const [teamFilter, setTeamFilter] = useState<string | 'all'>('all');
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
+  const [menuMeasuredHeight, setMenuMeasuredHeight] = useState(0);
+  const menuVisibility = useRef(new Animated.Value(1)).current;
+  const lastScrollYRef = useRef(0);
+  const scrollDirectionRef = useRef<1 | -1 | 0>(0);
+  const scrollTravelRef = useRef(0);
+  const menuVisibleRef = useRef(true);
 
   const teamOptions = useMemo(
     () =>
@@ -96,6 +388,18 @@ export default function AlbumScreen() {
       clearTimeout(timeoutId);
     };
   }, [searchTerm]);
+
+  useEffect(() => {
+    menuVisibleRef.current = true;
+    scrollDirectionRef.current = 0;
+    scrollTravelRef.current = 0;
+    Animated.timing(menuVisibility, {
+      toValue: 1,
+      duration: 100,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [categoryFilter, teamFilter, filter, debouncedSearchTerm, menuVisibility]);
 
   const categorySearchTokens: Record<StickerCategory, string> = useMemo(
     () => ({
@@ -244,183 +548,373 @@ export default function AlbumScreen() {
 
   function renderStickerCard(item: Sticker, compact = false, showTeamMeta = true, grid = false) {
     const status = stickerState[item.id] ?? { owned: false, repeatedCount: 0 };
+    const categoryTheme = resolveCardTheme(item);
+    const heroIcon = categoryHeroIcon[item.category];
+    const teamNumber = item.category === 'teams' ? (item.code.match(/#\s*(\d+)/)?.[1] ?? '') : '';
+    const teamAbbreviation = item.code.split(' ')[0];
+    const teamCodeLabel = item.category === 'teams' ? `${teamAbbreviation} #${teamNumber}` : item.code;
+    const cardTopLabel = item.category === 'teams' ? teamCodeLabel : item.code;
+    const normalizedAccent = blendColors(categoryTheme.accent, '#5f6f8a', 0.42);
+    const cardSolidColor = status.owned
+      ? blendColors(normalizedAccent, '#0b1d51', 0.38)
+      : blendColors(normalizedAccent, '#ffffff', 0.62);
+    const cardTextColor = status.owned ? '#ffffff' : '#0b1d51';
 
     return (
-      <View style={[styles.card, compact && styles.cardCompact, grid && styles.cardGrid, status.owned && styles.cardOwned]}>
-        <View style={[styles.stickerFace, status.owned && styles.stickerFaceOwned]}>
-          <View style={styles.cardTopRow}>
-            <View style={[styles.codePill, status.owned && styles.codePillOwned]}>
-              <Text style={[styles.code, status.owned && styles.codeOwned]}>{item.code}</Text>
-            </View>
-
-            <View style={styles.topRightActions}>
-              {status.repeatedCount > 0 && (
-                <View style={[styles.repeatBadge, status.owned && styles.repeatBadgeOwned]}>
-                  <Text style={[styles.repeatBadgeText, status.owned && styles.repeatBadgeTextOwned]}>x{status.repeatedCount}</Text>
-                </View>
-              )}
-
-              <Pressable
-                style={[styles.ownedToggle, status.owned && styles.ownedToggleActive]}
-                onPress={() => toggleOwned(item.id)}
+      <Pressable
+        style={[
+          styles.card,
+          compact && styles.cardCompact,
+          grid && styles.cardGrid,
+        ]}
+        onPress={() => toggleOwned(item.id)}
+        accessibilityRole="button"
+        accessibilityLabel={`${teamCodeLabel} ${status.owned ? 'seleccionada' : 'no seleccionada'}`}
+      >
+        <View
+          style={[
+            styles.stickerFace,
+            {
+              borderColor: cardSolidColor,
+              backgroundColor: cardSolidColor,
+            },
+            status.owned && { borderColor: cardSolidColor },
+          ]}
+        >
+          <View
+            style={[
+              styles.heroPanel,
+              styles.heroPanelTeam,
+              {
+                backgroundColor: cardSolidColor,
+                borderColor: cardSolidColor,
+              },
+            ]}
+          >
+            <View style={styles.teamCardContent}>
+              <Text
+                style={[styles.teamHeroCode, { color: cardTextColor }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
               >
-                <Ionicons name={status.owned ? 'checkmark' : 'add'} size={14} color={status.owned ? '#ffffff' : '#0d6efd'} />
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={[styles.albumStrip, status.owned && styles.albumStripOwned]} />
-
-          <View style={[styles.nameRow, compact && styles.nameRowCompact]}>
-            {showTeamMeta && item.iso2 && (
-              <Image
-                source={{ uri: `https://flagcdn.com/32x24/${item.iso2.toLowerCase()}.png` }}
-                style={styles.flagImage}
-              />
-            )}
-            <View style={styles.nameTextWrap}>
-              {showTeamMeta && (
-                <Text style={[styles.teamName, status.owned && styles.teamNameOwned]} numberOfLines={1}>
-                  {item.team ?? ' '}
-                </Text>
-              )}
-              <Text style={[styles.name, status.owned && styles.nameOwned]} numberOfLines={compact ? 1 : 2}>
-                {item.title}
+                {cardTopLabel}
               </Text>
+              {item.category === 'stadiums' ? (
+                <Image
+                  source={stadiumSilhouetteImage}
+                  style={[
+                    styles.heroPlayerCenter,
+                    {
+                      tintColor: cardTextColor,
+                    },
+                  ]}
+                />
+              ) : item.category === 'legends' ? (
+                <Ionicons
+                  name="medal"
+                  size={30}
+                  color={cardTextColor}
+                />
+              ) : item.category === 'teams' ? (
+                <Image
+                  source={playerSilhouetteImage}
+                  style={[
+                    styles.heroPlayerCenter,
+                    {
+                      tintColor: cardTextColor,
+                    },
+                  ]}
+                />
+              ) : (
+                <Ionicons
+                  name={heroIcon}
+                  size={30}
+                  color={cardTextColor}
+                />
+              )}
             </View>
           </View>
 
-          <View style={[styles.bottomControlsRow, !status.owned && styles.bottomControlsRowHidden]}>
-            <View style={[styles.counterControls, status.owned && styles.counterControlsOwned]}>
+          <View
+            style={[
+              styles.bottomControlsRow,
+              !status.owned && styles.bottomControlsRowHidden,
+            ]}
+          >
+            <View
+              style={[
+                styles.counterControls,
+                {
+                  borderColor: cardSolidColor,
+                  backgroundColor: cardSolidColor,
+                },
+                status.owned && { borderColor: cardSolidColor },
+              ]}
+            >
               <Pressable
                 style={[
                   styles.counterBtn,
-                  status.owned && styles.counterBtnOwned,
+                  { backgroundColor: cardSolidColor },
                   (status.repeatedCount === 0 || !status.owned) && styles.counterBtnDisabled,
                 ]}
                 onPress={() => decrementRepeated(item.id)}
                 disabled={status.repeatedCount === 0 || !status.owned}
+                hitSlop={8}
               >
-                <Text style={[styles.counterBtnText, status.owned && styles.counterBtnTextOwned]}>−</Text>
+                <Text
+                  style={[styles.counterBtnText, { color: cardTextColor }]}
+                >
+                  −
+                </Text>
               </Pressable>
-              <Text style={[styles.counterValue, status.owned && styles.counterValueOwned]}>{status.repeatedCount}</Text>
+              <Text style={[styles.counterValue, { color: cardTextColor }]}>{status.repeatedCount}</Text>
               <Pressable
-                style={[styles.counterBtn, status.owned && styles.counterBtnOwned, !status.owned && styles.counterBtnDisabled]}
+                style={[
+                  styles.counterBtn,
+                  { backgroundColor: cardSolidColor },
+                  !status.owned && styles.counterBtnDisabled,
+                  status.repeatedCount >= 30 && styles.counterBtnDisabled,
+                ]}
                 onPress={() => incrementRepeated(item.id)}
-                disabled={!status.owned}
+                disabled={!status.owned || status.repeatedCount >= 30}
+                hitSlop={8}
               >
-                <Text style={[styles.counterBtnText, status.owned && styles.counterBtnTextOwned]}>+</Text>
+                <Text
+                  style={[styles.counterBtnText, { color: cardTextColor }]}
+                >
+                  +
+                </Text>
               </Pressable>
             </View>
           </View>
         </View>
+      </Pressable>
+    );
+  }
+
+  function renderAlbumTitle() {
+    return (
+      <View style={styles.albumHeaderContainer}>
+        <Text style={styles.title}>{getLabel('albumTitle')}</Text>
+        <Text style={styles.subtitle}>{getLabel('albumSubtitle')}</Text>
       </View>
     );
   }
 
+  function renderAlbumMenu() {
+    return (
+      <View
+        style={styles.floatingMenuWrapper}
+        onLayout={(event) => {
+          const height = Math.round(event.nativeEvent.layout.height);
+          if (height > 0 && height !== menuMeasuredHeight) {
+            setMenuMeasuredHeight(height);
+          }
+        }}
+      >
+
+        <View style={styles.searchRow}>
+            <View style={styles.searchInputWrap}>
+              <TextInput
+                ref={searchInputRef}
+                value={searchTerm}
+                onChangeText={setSearchTerm}
+                placeholder={getLabel('searchPlaceholder')}
+                placeholderTextColor="#647995"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[styles.searchInput, searchTerm.length > 0 && styles.searchInputWithClear]}
+              />
+              {searchTerm.length > 0 && (
+                <Pressable
+                  style={styles.clearSearchButton}
+                  onPress={() => {
+                    setSearchTerm('');
+                    setDebouncedSearchTerm('');
+                    searchInputRef.current?.blur();
+                    Keyboard.dismiss();
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={18} color="#6f7f9d" />
+                </Pressable>
+              )}
+            </View>
+          <Pressable
+            style={[
+              styles.filterIconButton,
+              (categoryFilter !== 'all' || teamFilter !== 'all') && styles.filterIconButtonActive,
+            ]}
+            onPress={() => setDrawerVisible(true)}
+          >
+            <Ionicons
+              name="options-outline"
+              size={22}
+              color={categoryFilter !== 'all' || teamFilter !== 'all' ? '#ffffff' : '#44536b'}
+            />
+          </Pressable>
+        </View>
+
+        <View style={styles.filterRow}>
+          {(['all', 'owned', 'missing', 'repeated'] as const).map((item) => (
+            <Pressable
+              key={item}
+              style={[styles.filterButton, filter === item && styles.filterButtonActive]}
+              onPress={() => setFilter(item)}
+            >
+              <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>
+                {getLabel(
+                  item === 'all'
+                    ? 'filterAll'
+                    : item === 'owned'
+                      ? 'filterOwned'
+                      : item === 'missing'
+                        ? 'filterMissing'
+                        : 'filterRepeated'
+                )}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {(categoryFilter !== 'all' || teamFilter !== 'all') && (
+          <View style={styles.activeCategoryRow}>
+            {categoryFilter !== 'all' && (
+              <View style={styles.activeCategoryChip}>
+                <Text style={styles.activeCategoryText}>
+                  {getLabel(categoryKeyMap[categoryFilter])}
+                </Text>
+                <Pressable onPress={() => setCategoryFilter('all')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={16} color="#0d6efd" />
+                </Pressable>
+              </View>
+            )}
+            {teamFilter !== 'all' && (
+              <View style={styles.activeCategoryChip}>
+                <Text style={styles.activeCategoryText}>
+                  {teamFilter}
+                </Text>
+                <Pressable onPress={() => setTeamFilter('all')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={16} color="#0d6efd" />
+                </Pressable>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function handleListScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const nextY = event.nativeEvent.contentOffset.y;
+    const previousY = lastScrollYRef.current;
+    const delta = nextY - previousY;
+    const hideDistance = 20;
+    const showDistance = 12;
+
+    if (nextY <= 8) {
+      if (!menuVisibleRef.current) {
+        menuVisibleRef.current = true;
+        Animated.timing(menuVisibility, {
+          toValue: 1,
+          duration: 120,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+      }
+      scrollDirectionRef.current = 0;
+      scrollTravelRef.current = 0;
+      lastScrollYRef.current = nextY;
+      return;
+    }
+
+    if (Math.abs(delta) < 0.5) {
+      return;
+    }
+
+    const direction: 1 | -1 = delta > 0 ? 1 : -1;
+    if (scrollDirectionRef.current !== direction) {
+      scrollDirectionRef.current = direction;
+      scrollTravelRef.current = 0;
+    }
+
+    scrollTravelRef.current += Math.abs(delta);
+
+    if (direction === 1 && menuVisibleRef.current && scrollTravelRef.current >= hideDistance) {
+      menuVisibleRef.current = false;
+      scrollTravelRef.current = 0;
+      Animated.timing(menuVisibility, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    } else if (direction === -1 && !menuVisibleRef.current && scrollTravelRef.current >= showDistance) {
+      menuVisibleRef.current = true;
+      scrollTravelRef.current = 0;
+      Animated.timing(menuVisibility, {
+        toValue: 1,
+        duration: 120,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    }
+
+    lastScrollYRef.current = nextY;
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{getLabel('albumTitle')}</Text>
-      <Text style={styles.subtitle}>{getLabel('albumSubtitle')}</Text>
-
-      <View style={styles.searchRow}>
-        <TextInput
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          placeholder={getLabel('searchPlaceholder')}
-          placeholderTextColor="#647995"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={styles.searchInput}
-        />
-        <Pressable
-          style={[
-            styles.filterIconButton,
-            (categoryFilter !== 'all' || teamFilter !== 'all') && styles.filterIconButtonActive,
-          ]}
-          onPress={() => setDrawerVisible(true)}
-        >
-          <Ionicons
-            name="options-outline"
-            size={22}
-            color={categoryFilter !== 'all' || teamFilter !== 'all' ? '#ffffff' : '#44536b'}
-          />
-        </Pressable>
-      </View>
-
-      <View style={styles.filterRow}>
-        {(['all', 'owned', 'missing', 'repeated'] as const).map((item) => (
-          <Pressable
-            key={item}
-            style={[styles.filterButton, filter === item && styles.filterButtonActive]}
-            onPress={() => setFilter(item)}
-          >
-            <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>
-              {getLabel(
-                item === 'all'
-                  ? 'filterAll'
-                  : item === 'owned'
-                    ? 'filterOwned'
-                    : item === 'missing'
-                      ? 'filterMissing'
-                      : 'filterRepeated'
-              )}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {(categoryFilter !== 'all' || teamFilter !== 'all') && (
-        <View style={styles.activeCategoryRow}>
-          {categoryFilter !== 'all' && (
-            <View style={styles.activeCategoryChip}>
-              <Text style={styles.activeCategoryText}>
-                {getLabel(categoryKeyMap[categoryFilter])}
-              </Text>
-              <Pressable onPress={() => setCategoryFilter('all')} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color="#0d6efd" />
-              </Pressable>
-            </View>
-          )}
-          {teamFilter !== 'all' && (
-            <View style={styles.activeCategoryChip}>
-              <Text style={styles.activeCategoryText}>
-                {teamFilter}
-              </Text>
-              <Pressable onPress={() => setTeamFilter('all')} hitSlop={8}>
-                <Ionicons name="close-circle" size={16} color="#0d6efd" />
-              </Pressable>
-            </View>
-          )}
-        </View>
-      )}
+      {renderAlbumTitle()}
+      <Animated.View
+        style={[
+          styles.menuAnimatedContainer,
+          {
+            height: menuVisibility.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, menuMeasuredHeight || 1],
+            }),
+            opacity: menuVisibility,
+            marginBottom: menuVisibility.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 8],
+            }),
+          },
+        ]}
+      >
+        {renderAlbumMenu()}
+      </Animated.View>
 
       {isSingleTeamView ? (
         <View style={styles.teamGroupedContainer}>
-          <View style={styles.teamSectionHeader}>
-            {selectedTeamIso2 && (
-              <Image
-                source={{ uri: `https://flagcdn.com/32x24/${selectedTeamIso2.toLowerCase()}.png` }}
-                style={styles.teamSectionFlag}
-              />
-            )}
-            <Text style={styles.teamSectionTitle}>{teamFilter}</Text>
-            <Text style={styles.teamSectionCount}>{filteredStickers.length}</Text>
-          </View>
-
           <FlatList
             data={filteredStickers}
+            onScroll={handleListScroll}
+            scrollEventThrottle={16}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            style={styles.resultsList}
             keyExtractor={(item) => item.id}
             numColumns={GRID_COLUMNS}
             columnWrapperStyle={styles.compactRow}
             contentContainerStyle={styles.teamGridContent}
+            ListHeaderComponent={
+              <View style={styles.teamSectionHeader}>
+                  <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(selectedTeamIso2)}</Text>
+                <Text style={styles.teamSectionTitle}>{teamFilter}</Text>
+                <Text style={styles.teamSectionCount}>{filteredStickers.length}</Text>
+              </View>
+            }
             initialNumToRender={48}
             maxToRenderPerBatch={48}
             windowSize={7}
-            removeClippedSubviews
+            removeClippedSubviews={false}
             renderItem={({ item }) => (
               <View style={styles.gridItem}>
-                {renderStickerCard(item, true, false, true)}
+                {renderStickerCard(item, true, true, true)}
               </View>
             )}
             ListEmptyComponent={<Text style={styles.emptyText}>{getLabel('noSearchResults')}</Text>}
@@ -429,30 +923,30 @@ export default function AlbumScreen() {
       ) : categoryFilter === 'teams' ? (
         <SectionList
           sections={teamGridSections}
-          keyExtractor={(_, index) => `team-row-${index}`}
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          style={styles.resultsList}
+          keyExtractor={(item: GridRow) => item.map((sticker: Sticker) => sticker.id).join('|')}
           contentContainerStyle={styles.listContent}
           stickySectionHeadersEnabled={false}
           initialNumToRender={36}
           maxToRenderPerBatch={36}
           windowSize={7}
-          removeClippedSubviews
+          removeClippedSubviews={false}
           renderSectionHeader={({ section }) => (
             <View style={styles.teamSectionHeader}>
-              {section.teamIso2 && (
-                <Image
-                  source={{ uri: `https://flagcdn.com/32x24/${section.teamIso2.toLowerCase()}.png` }}
-                  style={styles.teamSectionFlag}
-                />
-              )}
+              <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(section.teamIso2)}</Text>
               <Text style={styles.teamSectionTitle}>{section.title}</Text>
               <Text style={styles.teamSectionCount}>{section.count}</Text>
             </View>
           )}
           renderItem={({ item }) => (
             <View style={styles.compactRow}> 
-              {item.map((sticker) => (
+              {item.map((sticker: Sticker) => (
                 <View key={sticker.id} style={styles.gridItem}>
-                  {renderStickerCard(sticker, true, false, true)}
+                  {renderStickerCard(sticker, true, true, true)}
                 </View>
               ))}
             </View>
@@ -462,22 +956,22 @@ export default function AlbumScreen() {
       ) : (
         <SectionList
           sections={mixedGridSections}
-          keyExtractor={(_, index) => `mixed-row-${index}`}
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          style={styles.resultsList}
+          keyExtractor={(item: GridRow) => item.map((sticker: Sticker) => sticker.id).join('|')}
           contentContainerStyle={styles.listContent}
           stickySectionHeadersEnabled={false}
           initialNumToRender={36}
           maxToRenderPerBatch={36}
           windowSize={7}
-          removeClippedSubviews
+          removeClippedSubviews={false}
           renderSectionHeader={({ section }) =>
             section.isTeamSection ? (
               <View style={styles.teamSectionHeader}>
-                {section.teamIso2 && (
-                  <Image
-                    source={{ uri: `https://flagcdn.com/32x24/${section.teamIso2.toLowerCase()}.png` }}
-                    style={styles.teamSectionFlag}
-                  />
-                )}
+                <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(section.teamIso2)}</Text>
                 <Text style={styles.teamSectionTitle}>{section.title}</Text>
                 <Text style={styles.teamSectionCount}>{section.count}</Text>
               </View>
@@ -490,9 +984,9 @@ export default function AlbumScreen() {
           }
           renderItem={({ item, section }) => (
             <View style={styles.compactRow}>
-              {item.map((sticker) => (
+              {item.map((sticker: Sticker) => (
                 <View key={sticker.id} style={styles.gridItem}>
-                  {renderStickerCard(sticker, true, !section.isTeamSection, true)}
+                  {renderStickerCard(sticker, true, true, true)}
                 </View>
               ))}
             </View>
@@ -604,6 +1098,15 @@ const styles = StyleSheet.create({
     color: '#5c6885',
     marginBottom: 10,
   },
+  albumHeaderContainer: {
+    paddingBottom: 8,
+  },
+  menuAnimatedContainer: {
+    overflow: 'hidden',
+  },
+  floatingMenuWrapper: {
+    backgroundColor: '#f4f7ff',
+  },
   searchInput: {
     flex: 1,
     borderWidth: 1,
@@ -613,6 +1116,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#ffffff',
     color: '#10213a',
+  },
+  searchInputWrap: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  searchInputWithClear: {
+    paddingRight: 34,
+  },
+  clearSearchButton: {
+    position: 'absolute',
+    right: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterRow: {
     marginTop: 10,
@@ -642,7 +1159,11 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingTop: 8,
-    paddingBottom: 24,
+    paddingBottom: 120,
+    flexGrow: 1,
+  },
+  resultsList: {
+    flex: 1,
   },
   sectionHeader: {
     marginTop: 8,
@@ -663,50 +1184,181 @@ const styles = StyleSheet.create({
   },
   card: {
     marginBottom: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#d5dfec',
-    backgroundColor: '#ebf0f8',
-    padding: 3,
-    shadowColor: '#10213a',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+    padding: 0,
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   cardOwned: {
-    borderColor: '#000000',
-    backgroundColor: '#111111',
-    shadowColor: '#000000',
-    shadowOpacity: 0.65,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 12,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 0,
   },
   cardCompact: {
     width: '100%',
   },
   cardGrid: {
-    height: 128,
-    minHeight: 128,
-    maxHeight: 128,
+    width: '100%',
+    alignSelf: 'center',
+    height: 124,
+    minHeight: 124,
+    maxHeight: 124,
+    transform: [{ scale: 0.9 }],
   },
   stickerFace: {
     flex: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#d9e4f1',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-    justifyContent: 'space-between',
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    justifyContent: 'center',
     overflow: 'hidden',
   },
   stickerFaceOwned: {
-    borderColor: '#2f2f2f',
-    backgroundColor: '#1b1b1b',
+    borderColor: '#17315f',
+    backgroundColor: '#122447',
+  },
+  cardCategoryRibbon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 12,
+    borderTopLeftRadius: 7,
+    borderTopRightRadius: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+  },
+  cardCategoryRibbonText: {
+    color: '#ffffff',
+    fontSize: 7,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
+  heroPanel: {
+    marginTop: 3,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroGlow: {
+    position: 'absolute',
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    opacity: 0.55,
+  },
+  heroTeamCenterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '88%',
+  },
+  heroTeamCountry: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0b1d51',
+    textTransform: 'uppercase',
+  },
+  heroTeamCountryOwned: {
+    color: '#ffffff',
+  },
+  heroTeamNumber: {
+    marginTop: 1,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0b1d51',
+    lineHeight: 16,
+  },
+  heroTeamNumberOwned: {
+    color: '#ffffff',
+  },
+  heroStadiumImage: {
+    width: 31,
+    height: 31,
+    resizeMode: 'contain',
+  },
+  heroPlayerImage: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+  },
+  heroPanelTeam: {
+    height: 60,
+    marginTop: 0,
+  },
+  teamCardContent: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+    gap: 8,
+  },
+  heroPlayerCenter: {
+    width: 34,
+    height: 34,
+    resizeMode: 'contain',
+    opacity: 0.65,
+  },
+  teamHeroCode: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0b1d51',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    marginTop: -2,
+  },
+  teamHeroCodeOwned: {
+    color: '#ffffff',
+  },
+  heroBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 13,
+    height: 13,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBottomPlate: {
+    position: 'absolute',
+    bottom: 2,
+    left: 3,
+    right: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+  },
+  heroBottomPlateText: {
+    color: '#ffffff',
+    fontSize: 6,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   cardTopRow: {
+    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -716,8 +1368,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d2e1ff',
     borderRadius: 999,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
   codePillOwned: {
     backgroundColor: '#2b2b2b',
@@ -743,7 +1395,7 @@ const styles = StyleSheet.create({
     minHeight: 11,
   },
   teamNameOwned: {
-    color: '#ececec',
+    color: '#d8e6ff',
   },
   name: {
     color: '#0b1d51',
@@ -752,7 +1404,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nameOwned: {
-    color: '#ffffff',
+    color: '#f5f8ff',
   },
   nameTextWrap: {
     flex: 1,
@@ -772,8 +1424,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   repeatBadgeOwned: {
-    backgroundColor: '#2a2a2a',
-    borderColor: '#737373',
+    backgroundColor: '#152a52',
+    borderColor: '#2a4a85',
   },
   repeatBadgeTextOwned: {
     color: '#ffffff',
@@ -785,27 +1437,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#edf2fa',
   },
   albumStripOwned: {
-    backgroundColor: '#4e4e4e',
+    backgroundColor: '#2b5fb3',
   },
   ownedToggle: {
     width: 20,
     height: 20,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#009b3a',
+    borderColor: '#0d6efd',
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   ownedToggleActive: {
-    backgroundColor: '#009b3a',
-    borderColor: '#009b3a',
+    backgroundColor: '#0d6efd',
+    borderColor: '#0d6efd',
   },
   bottomControlsRow: {
-    marginTop: 4,
+    position: 'absolute',
+    bottom: 12,
+    left: 5,
+    right: 5,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    minHeight: 22,
+    minHeight: 26,
   },
   bottomControlsRowHidden: {
     opacity: 0,
@@ -820,35 +1475,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7fafe',
   },
   counterControlsOwned: {
-    borderColor: '#686868',
-    backgroundColor: '#1f1f1f',
+    borderColor: '#2a4a85',
+    backgroundColor: '#152a52',
   },
   counterBtn: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#edf3ff',
   },
   counterBtnOwned: {
-    backgroundColor: '#353535',
+    backgroundColor: '#1d3d75',
   },
   counterBtnDisabled: {
     opacity: 0.35,
   },
   counterBtnText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: '#214065',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   counterBtnTextOwned: {
     color: '#ffffff',
   },
   counterValue: {
-    width: 18,
+    width: 22,
     textAlign: 'center',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
     color: '#10213a',
   },
@@ -925,10 +1580,12 @@ const styles = StyleSheet.create({
     width: '32%',
   },
   teamGroupedContainer: {
+    flex: 1,
     marginBottom: 8,
   },
   teamGridContent: {
-    paddingBottom: 2,
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   teamSectionHeader: {
     marginTop: 10,
@@ -948,6 +1605,10 @@ const styles = StyleSheet.create({
     width: 16,
     height: 11,
     borderRadius: 2,
+  },
+  teamSectionFlagEmoji: {
+    fontSize: 15,
+    lineHeight: 18,
   },
   teamSectionTitle: {
     color: '#0b1d51',

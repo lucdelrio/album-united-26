@@ -32,6 +32,27 @@ npx expo start
 ## Build
 
 ```bash
+npx expo prebuild
 npm run build:ios
 npm run build:android
 ```
+
+## iOS release without Metro
+
+For a local release build (does not depend on Metro at runtime):
+
+```bash
+npm run ios:release:device
+```
+
+For cloud builds with EAS (recommended for distribution):
+
+```bash
+npm run build:ios:preview
+npm run build:ios:production
+```
+
+## AdMob (important)
+
+- The project uses AdMob test app IDs in development, so iOS does not crash when ads initialize.
+- Before publishing, replace those IDs in `app.json` (the `react-native-google-mobile-ads` plugin) with your real AdMob app IDs.

@@ -1,4 +1,4 @@
-package com.anonymous.worldcup2026
+package com.album.united26
 
 import android.os.Build
 import android.os.Bundle

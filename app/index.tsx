@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAlbum } from '../lib/albumContext';
 import type { StickerCategory } from '../lib/types';
@@ -11,35 +11,13 @@ const categoryKeyMap: Record<StickerCategory, 'categorySpecial' | 'categoryStadi
 };
 
 export default function HomePage() {
-  const { language, setLanguage, totals, categories, getLabel } = useAlbum();
+  const { totals, categories, getLabel } = useAlbum();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>{getLabel('dashboardTitle')}</Text>
         <Text style={styles.subtitle}>{getLabel('dashboardSubtitle')}</Text>
-      </View>
-
-      <View style={styles.languageRow}>
-        <Text style={styles.languageLabel}>{getLabel('languageLabel')}</Text>
-        <View style={styles.languageButtons}>
-          <Pressable
-            onPress={() => setLanguage('en')}
-            style={[styles.languageButton, language === 'en' && styles.languageButtonActive]}
-          >
-            <Text style={[styles.languageButtonText, language === 'en' && styles.languageButtonTextActive]}>
-              {getLabel('english')}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setLanguage('es')}
-            style={[styles.languageButton, language === 'es' && styles.languageButtonActive]}
-          >
-            <Text style={[styles.languageButtonText, language === 'es' && styles.languageButtonTextActive]}>
-              {getLabel('spanish')}
-            </Text>
-          </Pressable>
-        </View>
       </View>
 
       <View style={styles.statsGrid}>
@@ -107,37 +85,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     color: '#5c6885',
-  },
-  languageRow: {
-    marginBottom: 12,
-  },
-  languageLabel: {
-    color: '#44536b',
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  languageButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  languageButton: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#d7e1ef',
-    backgroundColor: '#ffffff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  languageButtonActive: {
-    backgroundColor: '#c1121f',
-    borderColor: '#c1121f',
-  },
-  languageButtonText: {
-    color: '#214065',
-    fontWeight: '600',
-  },
-  languageButtonTextActive: {
-    color: '#ffffff',
   },
   statsGrid: {
     flexDirection: 'row',

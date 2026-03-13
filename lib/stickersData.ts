@@ -112,8 +112,8 @@ function buildTeamCollection(): Sticker[] {
     for (let stickerIndex = 1; stickerIndex <= TEAM_STICKERS_PER_TEAM; stickerIndex += 1) {
       stickers.push({
         id: `team-${team.code}-${stickerIndex}`,
-        code: `${team.code}-${pad(stickerIndex, 2)}`,
-        title: `Player ${stickerIndex}`,
+        code: `${team.code} #${stickerIndex}`,
+        title: `${team.name} #${stickerIndex}`,
         category: 'teams',
         team: team.name,
         iso2: team.iso2,

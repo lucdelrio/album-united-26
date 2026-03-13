@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, type PropsWithChildren } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { t, type Language } from './i18n';
 import { STICKERS } from './stickersData';
@@ -22,7 +23,6 @@ type CategorySummary = {
 
 type AlbumContextValue = {
   language: Language;
-  setLanguage: (language: Language) => void;
   stickers: Sticker[];
   repeatedStickers: Sticker[];
   stickerState: AlbumState;
@@ -35,14 +35,96 @@ type AlbumContextValue = {
 };
 
 const AlbumContext = createContext<AlbumContextValue | undefined>(undefined);
+const MAX_REPEATED_PER_STICKER = 30;
+const ALBUM_STATE_STORAGE_KEY = 'album_united_26_state_v1';
+
+function resolveDeviceLanguage(): Language {
+  const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() ?? 'en';
+  return locale.startsWith('es') ? 'es' : 'en';
+}
 
 function defaultStatus(): StickerStatus {
   return { owned: false, repeatedCount: 0 };
 }
 
 export function AlbumProvider({ children }: PropsWithChildren) {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language] = useState<Language>(resolveDeviceLanguage);
   const [stickerState, setStickerState] = useState<AlbumState>({});
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateState = async () => {
+      try {
+        const serialized = await AsyncStorage.getItem(ALBUM_STATE_STORAGE_KEY);
+        if (!serialized || !isMounted) {
+          return;
+        }
+
+        const parsed = JSON.parse(serialized) as AlbumState;
+        if (!parsed || typeof parsed !== 'object') {
+          return;
+        }
+
+        const sanitizedEntries = Object.entries(parsed)
+          .filter(([stickerId, status]) => {
+            if (typeof stickerId !== 'string' || !status || typeof status !== 'object') {
+              return false;
+            }
+
+            const owned = (status as StickerStatus).owned;
+            const repeatedCount = (status as StickerStatus).repeatedCount;
+            return typeof owned === 'boolean' && typeof repeatedCount === 'number';
+          })
+          .map(([stickerId, status]) => {
+            const owned = (status as StickerStatus).owned;
+            const repeatedCount = Math.max(
+              0,
+              Math.min(MAX_REPEATED_PER_STICKER, Math.floor((status as StickerStatus).repeatedCount))
+            );
+
+            return [
+              stickerId,
+              {
+                owned,
+                repeatedCount: owned ? repeatedCount : 0,
+              } satisfies StickerStatus,
+            ] as const;
+          });
+
+        setStickerState(Object.fromEntries(sanitizedEntries));
+      } catch {
+        setStickerState({});
+      } finally {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
+      }
+    };
+
+    void hydrateState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    const persistState = async () => {
+      try {
+        await AsyncStorage.setItem(ALBUM_STATE_STORAGE_KEY, JSON.stringify(stickerState));
+      } catch {
+        // no-op: local persistence failure should not break app usage
+      }
+    };
+
+    void persistState();
+  }, [isHydrated, stickerState]);
 
   const totals = useMemo<AlbumTotals>(() => {
     const total = STICKERS.length;
@@ -103,7 +185,7 @@ export function AlbumProvider({ children }: PropsWithChildren) {
   const incrementRepeated = (stickerId: string) => {
     setStickerState((prev) => {
       const current = prev[stickerId] ?? defaultStatus();
-      if (!current.owned) return prev;
+      if (!current.owned || current.repeatedCount >= MAX_REPEATED_PER_STICKER) return prev;
       return { ...prev, [stickerId]: { ...current, repeatedCount: current.repeatedCount + 1 } };
     });
   };
@@ -122,7 +204,6 @@ export function AlbumProvider({ children }: PropsWithChildren) {
     <AlbumContext.Provider
       value={{
         language,
-        setLanguage,
         stickers: STICKERS,
         repeatedStickers,
         stickerState,

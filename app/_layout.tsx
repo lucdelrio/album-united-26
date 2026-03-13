@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
-import { getGoogleMobileAdsModule, isGoogleMobileAdsAvailable } from '../lib/ads';
+import { getGoogleMobileAdsModule } from '../lib/ads';
 import { AlbumProvider, useAlbum } from '../lib/albumContext';
 
 function AppTabs() {
@@ -25,7 +25,7 @@ function AppTabs() {
         },
         tabBarIcon: ({ color, size }) => {
           const iconMap: Record<string, keyof typeof Ionicons.glyphMap> = {
-            index: 'speedometer-outline',
+            index: 'home-outline',
             album: 'albums-outline',
             repeated: 'git-compare-outline',
           };
@@ -44,7 +44,8 @@ function AppTabs() {
 export default function RootLayout() {
   useEffect(() => {
     const initAds = async () => {
-      if (!isGoogleMobileAdsAvailable()) {
+      const adsModule = getGoogleMobileAdsModule();
+      if (!adsModule) {
         return;
       }
 
@@ -55,7 +56,6 @@ export default function RootLayout() {
         }
       }
 
-      const adsModule = getGoogleMobileAdsModule();
       const mobileAdsFactory = adsModule?.default;
       if (!mobileAdsFactory) {
         return;
