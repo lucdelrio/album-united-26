@@ -1,5 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { NativeModules } from 'react-native';
 
 import { t, type Language } from './i18n';
 import { STICKERS } from './stickersData';
@@ -38,6 +39,49 @@ const AlbumContext = createContext<AlbumContextValue | undefined>(undefined);
 const MAX_REPEATED_PER_STICKER = 30;
 const ALBUM_STATE_STORAGE_KEY = 'album_united_26_state_v1';
 
+type StorageLike = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+};
+
+let cachedStorage: StorageLike | null | undefined;
+
+function getLocalStorage(): StorageLike | null {
+  if (cachedStorage !== undefined) {
+    return cachedStorage;
+  }
+
+  // Expo Go does not include this native module.
+  if (Constants.executionEnvironment === 'storeClient') {
+    cachedStorage = null;
+    return cachedStorage;
+  }
+
+  // Guard for dev clients / native builds where AsyncStorage may not be linked yet.
+  const nativeModules = NativeModules as Record<string, unknown>;
+  const hasNativeStorageModule = Boolean(
+    nativeModules.RNCAsyncStorage ||
+      nativeModules.AsyncSQLiteDBStorage ||
+      nativeModules.PlatformLocalStorage
+  );
+
+  if (!hasNativeStorageModule) {
+    cachedStorage = null;
+    return cachedStorage;
+  }
+
+  try {
+    const mod = require('@react-native-async-storage/async-storage') as {
+      default?: StorageLike;
+    };
+    cachedStorage = mod.default ?? null;
+  } catch {
+    cachedStorage = null;
+  }
+
+  return cachedStorage;
+}
+
 function resolveDeviceLanguage(): Language {
   const locale = Intl.DateTimeFormat().resolvedOptions().locale?.toLowerCase() ?? 'en';
   return locale.startsWith('es') ? 'es' : 'en';
@@ -56,8 +100,16 @@ export function AlbumProvider({ children }: PropsWithChildren) {
     let isMounted = true;
 
     const hydrateState = async () => {
+      const storage = getLocalStorage();
+      if (!storage) {
+        if (isMounted) {
+          setIsHydrated(true);
+        }
+        return;
+      }
+
       try {
-        const serialized = await AsyncStorage.getItem(ALBUM_STATE_STORAGE_KEY);
+        const serialized = await storage.getItem(ALBUM_STATE_STORAGE_KEY);
         if (!serialized || !isMounted) {
           return;
         }
@@ -115,9 +167,14 @@ export function AlbumProvider({ children }: PropsWithChildren) {
       return;
     }
 
+    const storage = getLocalStorage();
+    if (!storage) {
+      return;
+    }
+
     const persistState = async () => {
       try {
-        await AsyncStorage.setItem(ALBUM_STATE_STORAGE_KEY, JSON.stringify(stickerState));
+        await storage.setItem(ALBUM_STATE_STORAGE_KEY, JSON.stringify(stickerState));
       } catch {
         // no-op: local persistence failure should not break app usage
       }
@@ -171,6 +228,9 @@ export function AlbumProvider({ children }: PropsWithChildren) {
   const toggleOwned = (stickerId: string) => {
     setStickerState((prev) => {
       const current = prev[stickerId] ?? defaultStatus();
+      if (current.owned && current.repeatedCount > 0) {
+        return prev;
+      }
       const nextOwned = !current.owned;
       return {
         ...prev,

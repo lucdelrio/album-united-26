@@ -1,6 +1,8 @@
 {
-  "name": "Album United 26",
+  "name": "Album Utd 26",
   "slug": "album-united-26",
+  "scheme": "albumutd26",
+  "icon": "./assets/logo-album-united-26.png",
   "orientation": "portrait",
   "plugins": [
     [

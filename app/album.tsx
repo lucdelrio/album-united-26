@@ -498,6 +498,27 @@ export default function AlbumScreen() {
   }, [filteredStickers]);
 
   const isSingleTeamView = teamFilter !== 'all';
+  const getSectionDisplayCount = (sectionStickers: Sticker[]) => {
+    if (filter === 'repeated') {
+      return sectionStickers.reduce((count, sticker) => {
+        const status = stickerState[sticker.id] ?? { owned: false, repeatedCount: 0 };
+        return count + status.repeatedCount;
+      }, 0);
+    }
+
+    if (filter !== 'all') {
+      return sectionStickers.length;
+    }
+
+    return sectionStickers.reduce((count, sticker) => {
+      const status = stickerState[sticker.id] ?? { owned: false, repeatedCount: 0 };
+      return count + (status.owned ? 0 : 1);
+    }, 0);
+  };
+
+  const getSectionCountLabel = (count: number) =>
+    filter === 'repeated' ? `${getLabel('filterRepeated')}: ${count}` : `${count}`;
+
   const selectedTeamIso2 = useMemo(() => {
     if (!isSingleTeamView) return undefined;
     const first = filteredStickers.find((sticker) => sticker.category === 'teams' && sticker.team === teamFilter);
@@ -510,11 +531,11 @@ export default function AlbumScreen() {
         key: `team-${section.title}`,
         title: section.title,
         data: chunkStickers(section.data, GRID_COLUMNS),
-        count: section.data.length,
+        count: getSectionDisplayCount(section.data),
         teamIso2: section.teamIso2,
         isTeamSection: true,
       })),
-    [teamGroupedSections]
+    [getSectionDisplayCount, teamGroupedSections]
   );
 
   const mixedGridSections = useMemo<GridSection[]>(() => {
@@ -527,7 +548,7 @@ export default function AlbumScreen() {
             key: `team-${teamSection.title}`,
             title: teamSection.title,
             data: chunkStickers(teamSection.data, GRID_COLUMNS),
-            count: teamSection.data.length,
+            count: getSectionDisplayCount(teamSection.data),
             teamIso2: teamSection.teamIso2,
             isTeamSection: true,
           });
@@ -537,14 +558,14 @@ export default function AlbumScreen() {
           key: `category-${section.title}`,
           title: section.title,
           data: chunkStickers(section.data, GRID_COLUMNS),
-          count: section.data.length,
+          count: getSectionDisplayCount(section.data),
           isTeamSection: false,
         });
       }
     }
 
     return sections;
-  }, [groupedSections, teamGroupedSections]);
+  }, [getSectionDisplayCount, groupedSections, teamGroupedSections]);
 
   function renderStickerCard(item: Sticker, compact = false, showTeamMeta = true, grid = false) {
     const status = stickerState[item.id] ?? { owned: false, repeatedCount: 0 };
@@ -668,7 +689,21 @@ export default function AlbumScreen() {
                   −
                 </Text>
               </Pressable>
-              <Text style={[styles.counterValue, { color: cardTextColor }]}>{status.repeatedCount}</Text>
+              {status.repeatedCount > 0 && (
+                <View
+                  style={[
+                    styles.counterValueBadge,
+                    {
+                      backgroundColor: categoryTheme.badgeBackground,
+                      borderColor: categoryTheme.badgeBorder,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.counterValue, { color: categoryTheme.accent }]}>
+                    {status.repeatedCount}
+                  </Text>
+                </View>
+              )}
               <Pressable
                 style={[
                   styles.counterBtn,
@@ -905,7 +940,7 @@ export default function AlbumScreen() {
               <View style={styles.teamSectionHeader}>
                   <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(selectedTeamIso2)}</Text>
                 <Text style={styles.teamSectionTitle}>{teamFilter}</Text>
-                <Text style={styles.teamSectionCount}>{filteredStickers.length}</Text>
+                  <Text style={styles.teamSectionCount}>{getSectionCountLabel(getSectionDisplayCount(filteredStickers))}</Text>
               </View>
             }
             initialNumToRender={48}
@@ -939,7 +974,7 @@ export default function AlbumScreen() {
             <View style={styles.teamSectionHeader}>
               <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(section.teamIso2)}</Text>
               <Text style={styles.teamSectionTitle}>{section.title}</Text>
-              <Text style={styles.teamSectionCount}>{section.count}</Text>
+              <Text style={styles.teamSectionCount}>{getSectionCountLabel(section.count)}</Text>
             </View>
           )}
           renderItem={({ item }) => (
@@ -973,12 +1008,16 @@ export default function AlbumScreen() {
               <View style={styles.teamSectionHeader}>
                 <Text style={styles.teamSectionFlagEmoji}>{getFlagEmoji(section.teamIso2)}</Text>
                 <Text style={styles.teamSectionTitle}>{section.title}</Text>
-                <Text style={styles.teamSectionCount}>{section.count}</Text>
+                <Text style={styles.teamSectionCount}>{getSectionCountLabel(section.count)}</Text>
               </View>
             ) : (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Text style={styles.sectionCount}>{getLabel('itemsCount', { count: section.count })}</Text>
+                <Text style={styles.sectionCount}>
+                  {filter === 'repeated'
+                    ? `${getLabel('filterRepeated')}: ${section.count}`
+                    : getLabel('itemsCount', { count: section.count })}
+                </Text>
               </View>
             )
           }
@@ -1319,7 +1358,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   teamHeroCode: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '900',
     color: '#0b1d51',
     letterSpacing: 0.3,
@@ -1455,12 +1494,13 @@ const styles = StyleSheet.create({
   },
   bottomControlsRow: {
     position: 'absolute',
-    bottom: 12,
+    bottom: -2,
     left: 5,
     right: 5,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    minHeight: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 30,
   },
   bottomControlsRowHidden: {
     opacity: 0,
@@ -1479,8 +1519,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#152a52',
   },
   counterBtn: {
-    width: 24,
-    height: 24,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#edf3ff',
@@ -1492,20 +1532,28 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   counterBtnText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
     color: '#214065',
-    lineHeight: 18,
+    lineHeight: 22,
   },
   counterBtnTextOwned: {
     color: '#ffffff',
   },
   counterValue: {
-    width: 22,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#10213a',
+  },
+  counterValueBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 2,
   },
   counterValueOwned: {
     color: '#ffffff',

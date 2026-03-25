@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAlbum } from '../lib/albumContext';
 import type { StickerCategory } from '../lib/types';
@@ -16,6 +16,11 @@ export default function HomePage() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
+        <Image
+          source={require('../assets/logo-album-united-26.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>{getLabel('dashboardTitle')}</Text>
         <Text style={styles.subtitle}>{getLabel('dashboardSubtitle')}</Text>
       </View>
@@ -74,7 +79,13 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerRow: {
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  logo: {
+    width: 180,
+    height: 80,
+    marginBottom: 8,
   },
   title: {
     fontSize: 28,
@@ -136,7 +147,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#c1121f',
+    backgroundColor: '#16a34a',
   },
   progressHint: {
     marginTop: 10,
